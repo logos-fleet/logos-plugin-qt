@@ -12,6 +12,7 @@
 #include <QDebug>
 #include <QVariant>
 #include <string>
+#include <utility>
 
 // The host half of the caller: logos::currentInboundCallerJson() and
 // logos::callerUnknownJson(). Arrived in logos-protocol 0.6, so the include is
@@ -56,6 +57,13 @@ LogosAPI::LogosAPI(const QString& module_name,
 
 LogosAPI* LogosAPI::forIdentity(const QString& identity, QObject* parent)
 {
+    return forIdentity(identity, LogosTransportSet{}, parent);
+}
+
+LogosAPI* LogosAPI::forIdentity(const QString& identity,
+                                LogosTransportSet transports,
+                                QObject* parent)
+{
     if (identity.isEmpty()) {
         qWarning() << "LogosAPI::forIdentity: refusing to isolate the empty identity";
         return nullptr;
@@ -69,7 +77,8 @@ LogosAPI* LogosAPI::forIdentity(const QString& identity, QObject* parent)
                       " that name; refusing to hand back a half-isolated identity";
         return nullptr;
     }
-    return new LogosAPI(identity, &TokenManager::forIdentity(identity), parent);
+    return new LogosAPI(identity, &TokenManager::forIdentity(identity),
+                        std::move(transports), parent);
 }
 
 LogosAPI::LogosAPI(const std::string& module_name, QObject *parent)
