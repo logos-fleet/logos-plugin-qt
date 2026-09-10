@@ -109,9 +109,16 @@ class QObject;
 //
 // The consumer-admission check is the oracle, not this comment: it runs a real
 // ModuleProxy in Local mode and asserts the consumer authorizes AS ITSELF.
+// 0.10 raised the bound without touching this path: the whole 0.9 -> 0.10 delta
+// is the Web transport (a fourth LogosProtocol value, its message codec and
+// host) plus the RpcPeer extraction out of RpcConnection. token_manager.h and
+// token_manager.cpp are byte-identical across it, so bootstrapKeys(),
+// adoptCredential(), adoptCredentialFor() and credential() are unchanged in
+// both signature and semantics, and a Web consumer is admitted through the
+// same store as a Local or Remote one.
 #if defined(LOGOS_PROTOCOL_VERSION_MINOR) \
     && (LOGOS_PROTOCOL_VERSION_MAJOR > 0 \
-        || (LOGOS_PROTOCOL_VERSION_MAJOR == 0 && LOGOS_PROTOCOL_VERSION_MINOR > 9))
+        || (LOGOS_PROTOCOL_VERSION_MAJOR == 0 && LOGOS_PROTOCOL_VERSION_MINOR > 10))
 #  error "logos-protocol is newer than the consumer-admission contract this file implements. \
 A private token store is created empty; if the protocol changed how a consumer is seeded, \
 this file and the hosts calling logos::admitConsumer must move in the SAME wave. Review \
