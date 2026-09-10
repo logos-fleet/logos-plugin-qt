@@ -219,6 +219,26 @@ public:
      * own yields an identity that can call nothing.
      */
     static LogosAPI* forIdentity(const QString& identity, QObject* parent = nullptr);
+
+    /**
+     * @brief forIdentity(), publishing on an EXPLICIT transport set.
+     *
+     * Same isolation contract as the overload above; the only difference is
+     * which listeners the provider binds. It exists because an IN-PROCESS
+     * module is the one provider whose transport set is not implied by how it
+     * was started: a subprocess module is handed `--transports` on its command
+     * line and builds its own LogosAPI from it, while a module the host loads
+     * into itself gets whatever the host constructs for it here. Without this,
+     * such a module publishes on the process-global default only, and a host
+     * configured for (say) TCP alone dials it on a listener it never bound —
+     * a hang, not an error, because the caller waits at acquire.
+     *
+     * An EMPTY set means the process-global default, identically to the
+     * transport-taking constructors.
+     */
+    static LogosAPI* forIdentity(const QString& identity,
+                                 LogosTransportSet transports,
+                                 QObject* parent = nullptr);
     
     /**
      * @brief Destructor

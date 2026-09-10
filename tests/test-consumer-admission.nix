@@ -80,6 +80,7 @@ pkgs.stdenv.mkDerivation {
     cat > probe.cpp <<'EOF'
     #include "logos_api.h"
     #include "logos_consumer.h"
+    #include "logos_transport_config.h"
 
     #include "logos_caller_scope.h"
     #include "logos_mode.h"
@@ -246,6 +247,34 @@ pkgs.stdenv.mkDerivation {
         check(logos::isUnauthorizedSentinel(
                   capProxy.callRemoteMethod(halfPresents, QStringLiteral("work"), {})),
               "an unadmitted identity is refused");
+
+        // ── the transport-carrying overload picks the SAME store ─────────────
+        //
+        // forIdentity(identity, transports) exists for the ONE provider whose
+        // transport set is not implied by how it was started: a module the host
+        // loads into its own process (LogosCore's Native container). The set is
+        // a constructor argument because the provider binds its listeners in
+        // its constructor -- and threading a second argument through a ctor
+        // chain is exactly where a store argument gets dropped, which is
+        // silent: the object still works, it just speaks with the HOST's
+        // authority instead of its own. Assert the store, not the transports;
+        // Local mode ignores the transports and the store is what carries the
+        // authority.
+        const QString tIdentity = QStringLiteral("probe_view_transported");
+        LogosTransportSet tSet;
+        LogosTransportConfig tcp;
+        tcp.protocol = LogosProtocol::Tcp;
+        tcp.host = "127.0.0.1";
+        tcp.port = 0;
+        tSet.push_back(tcp);
+        LogosAPI* tApi = LogosAPI::forIdentity(tIdentity, tSet, &app);
+        check(tApi != nullptr, "forIdentity(identity, transports) builds a LogosAPI");
+        check(tApi && tApi->getTokenManager() == &TokenManager::forIdentity(tIdentity),
+              "and binds the IDENTITY'S isolated store");
+        check(tApi && tApi->getTokenManager() != &TokenManager::instance(),
+              "and not the host's ambient ring");
+        check(tApi && tApi->getTokenManager()->tokenCount() == 0,
+              "and it is born empty, exactly like the one-argument form");
 
         // ── reissue: a reload rotates the credential ─────────────────────────
         const QString first = consumer.credential;

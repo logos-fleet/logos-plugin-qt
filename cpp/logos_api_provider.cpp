@@ -11,6 +11,41 @@
 #include <QDebug>
 #include <string>
 
+namespace {
+
+// THE STORE THIS PROVIDER'S IDENTITY OWNS.
+//
+// A LogosAPIProvider is parented to the LogosAPI it belongs to, and that object
+// already knows which TokenManager its identity speaks from:
+// TokenManager::forIdentity(name), which IS TokenManager::instance() for every
+// name nobody has isolated. Reading it here rather than reaching for the
+// ambient singleton is a no-op for every existing caller and the whole fix for
+// an isolated one.
+//
+// WHY IT MATTERED. ModuleProxy validates an inbound call against the store it
+// was constructed with, and this file constructed it with the ambient ring by
+// name. Isolate a provider identity in-process — which is what the Native
+// container does for every Bare module, via LogosAPI::forIdentity — and the
+// credential the host adopts lands in the identity's private store while the
+// proxy keeps gating on the process ring, which holds no credential for that
+// name. Measured end to end: capability_module's push to the module's handshake
+// surface was refused, and every call in was answered "token not recognized
+// (re-exchange failed)". ModuleProxy's own comment predicted this exact failure
+// and named this file; it is no longer unreached.
+//
+// Falls back to the ambient ring when the parent is not a LogosAPI (the
+// back-compat QObject* overload), which is the behaviour that was there before.
+TokenManager* storeForProvider(QObject* parent)
+{
+    if (auto* api = qobject_cast<LogosAPI*>(parent)) {
+        if (TokenManager* store = api->getTokenManager())
+            return store;
+    }
+    return &TokenManager::instance();
+}
+
+} // namespace
+
 LogosAPIProvider::LogosAPIProvider(const QString& module_name,
                                    LogosTransportSet transports,
                                    QObject *parent)
@@ -182,7 +217,13 @@ void LogosAPIProvider::seedHandshakeTrustAnchor()
 
     // Never overwrite an entry the module already holds: this runs before init(),
     // so a non-empty value here came from somewhere with more context than us.
-    TokenManager& tokens = TokenManager::instance();
+    //
+    // Into the IDENTITY'S store, not the ambient ring by name. This was the last
+    // site that spelled these two key strings against TokenManager::instance()
+    // directly, and against an isolated provider identity it seeded the wrong
+    // object — invisibly, because the write succeeds and only the read comes up
+    // empty. Same object for every non-isolated name, so nothing else moves.
+    TokenManager& tokens = *storeForProvider(api);
     for (const QString& key : { QStringLiteral("core"), QStringLiteral("capability_module") }) {
         if (tokens.getToken(key).isEmpty()) {
             tokens.saveToken(key, hostToken);
@@ -195,7 +236,7 @@ void LogosAPIProvider::publishHandshake(const QString& name, LogosProviderObject
     // The handshake proxy needs the ModuleProxy that will own the token store,
     // so build that now; publishProvider() reuses it rather than making another.
     if (!m_moduleProxy) {
-        m_moduleProxy = new ModuleProxy(provider, this);
+        m_moduleProxy = new ModuleProxy(provider, this, storeForProvider(parent()));
         if (m_pendingValidator) {
             m_moduleProxy->setTokenValidator(m_pendingValidator);
         }
@@ -248,7 +289,7 @@ bool LogosAPIProvider::publishProvider(const QString& name, LogosProviderObject*
     // store to exist before the initializer runs); reuse it so the token a peer
     // delivered early is the one the business object consults.
     if (!m_moduleProxy) {
-        m_moduleProxy = new ModuleProxy(provider, this);
+        m_moduleProxy = new ModuleProxy(provider, this, storeForProvider(parent()));
     }
     // Apply a validator installed before registration, before the proxy is
     // published on any transport (so no call can slip in unvalidated).
