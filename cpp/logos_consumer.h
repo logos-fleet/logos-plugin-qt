@@ -63,6 +63,26 @@ class QObject;
 // a reviewer. If this fires, the fix is to update logos-plugin-qt and the
 // hosts in the same wave as the protocol bump, then raise the bound.
 //
+// RAISED 9 -> 10 for logos-protocol 0.10 (the WEB TRANSPORT: the plain message
+// set carried over an injected message channel, LogosProtocol::Web, and the
+// WebTransportHost/Connection pair behind it). Nothing to move here either. The
+// review the error above asks for, carried out against the 0.9 -> 0.10 range
+// (4638634..the 0.10 head):
+//
+//   * bootstrapKeys(), adoptCredential(), adoptCredentialFor(), credential()
+//     and admitConsumer() have ZERO changed lines across the range.
+//   * No token, capability, credential or caller-scope file is touched;
+//     token_manager.{h,cpp} is byte-identical.
+//   * The only diff the range makes to a file this repo compiles against is
+//     module_proxy.h, and it is COMMENT-ONLY: the transport tag documentation
+//     gains "web" alongside "local"/"tcp"/"tcp_ssl". The 4-arg
+//     callRemoteMethod that carries the tag already existed at 0.9.
+//   * Everything else added is a new transport implementation under
+//     cpp/implementations/web/ plus the plain RPC peer split it reuses. A
+//     consumer is seeded exactly as it was at 0.8.
+//
+// So this raise, like the last one, records "nothing to do".
+//
 // RAISED 8 -> 9 for logos-protocol 0.9 (subscription continuity: a liveness
 // watchdog plus a per-TARGET status callback, generation counter and restart
 // policy). Unlike the 0.8 wave below, this repo has nothing to move: 0.9 does
@@ -111,7 +131,7 @@ class QObject;
 // ModuleProxy in Local mode and asserts the consumer authorizes AS ITSELF.
 #if defined(LOGOS_PROTOCOL_VERSION_MINOR) \
     && (LOGOS_PROTOCOL_VERSION_MAJOR > 0 \
-        || (LOGOS_PROTOCOL_VERSION_MAJOR == 0 && LOGOS_PROTOCOL_VERSION_MINOR > 9))
+        || (LOGOS_PROTOCOL_VERSION_MAJOR == 0 && LOGOS_PROTOCOL_VERSION_MINOR > 10))
 #  error "logos-protocol is newer than the consumer-admission contract this file implements. \
 A private token store is created empty; if the protocol changed how a consumer is seeded, \
 this file and the hosts calling logos::admitConsumer must move in the SAME wave. Review \
