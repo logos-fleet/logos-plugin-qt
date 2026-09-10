@@ -110,6 +110,8 @@ install(TARGETS logos_qt_host
 # per-process singleton; staying static also keeps a .lgx self-contained (a .lgx
 # records an empty nix closure, so a shared library would not travel with it).
 # In-process images link the shared one; out-of-process images link the archive.
+option(LOGOS_QT_HOST_BUILD_SHARED "Also build liblogos_qt_host as a shared library" ON)
+if(LOGOS_QT_HOST_BUILD_SHARED)
 if(NOT TARGET ${LP_SHARED_TARGET})
     # Hard failure rather than "skip the shared target", because every failure
     # mode here is silent: a consumer that wanted the shared runtime would fall
@@ -172,6 +174,7 @@ install(TARGETS logos_qt_host_shared
     RUNTIME DESTINATION bin
     INCLUDES DESTINATION include
 )
+endif() # LOGOS_QT_HOST_BUILD_SHARED
 
 install(EXPORT logos-qt-hostTargets
     FILE logos-qt-hostTargets.cmake
